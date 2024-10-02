@@ -1,13 +1,32 @@
-FROM ubuntu
+# Use the official Ubuntu 22.04 image
+FROM ubuntu:22.04
 
-RUN apt update
-RUN apt install -y python pyhton-pip
+# Install Python, pip, and other dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    build-essential \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY ./requirements.txt /opt
-COPY ./templates /opt/templates
-COPY ./app.py /opt
+# Set the working directory
+WORKDIR /app
 
-RUN pip install -r /opt/requirements.txt
+# Copy the requirements file first for better caching
+COPY requirements.txt .
 
-ENTRYPOINT python /opt/app.py
+# Create a virtual environment
+RUN python3 -m venv venv
+
+# Install dependencies in the virtual environment
+RUN ./venv/bin/pip install --no-cache-dir -r requirements.txt
+
+# Copy the application files
+COPY . .
+
+# Expose the application port
+EXPOSE 5000
+
+# Command to run the application
+CMD ["./venv/bin/python", "app.py"]
 
