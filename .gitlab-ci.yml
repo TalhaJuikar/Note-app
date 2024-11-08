@@ -1,0 +1,33 @@
+image: python:3.10
+
+stages:
+  - build
+  - deploy
+
+variables:
+  AWS_DEFAULT_REGION: us-west-2
+  AWS_ACCOUNT_ID: your-aws-account-id
+  DOCKER_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+before_script:
+  - pip install awscli
+  - pip install awsebcli
+
+build:
+  stage: build
+  script:
+    - docker build --build-arg DB_HOST=$DB_HOST --build-arg DB_NAME=$DB_NAME --build-arg DB_USER=$DB_USER --build-arg DB_PASS=$DB_PASS -t $DOCKER_IMAGE .
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $DOCKER_IMAGE
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  script:
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+    - docker tag $DOCKER_IMAGE $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/my-flask-app:$CI_COMMIT_REF_SLUG
+    - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/my-flask-app:$CI_COMMIT_REF_SLUG
+    - aws deploy create-deployment --application-name my-flask-app --deployment-config-name CodeDeployDefault.OneAtATime --deployment-group-name my-flask-app-deployment-group --s3-location bucket=my-bucket,key=app.zip,bundleType=zip
+  only:
+    - main

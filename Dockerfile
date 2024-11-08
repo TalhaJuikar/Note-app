@@ -1,11 +1,8 @@
-# Use the official Ubuntu 22.04 image
-FROM ubuntu:22.04
+# Use the official Python image based on Ubuntu 22.04
+FROM python:3.10-slim-bullseye
 
-# Install Python, pip, and other dependencies
+# Install build-essential for psycopg2
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
     build-essential \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -15,18 +12,26 @@ WORKDIR /app
 # Copy the requirements file first for better caching
 COPY requirements.txt .
 
-# Create a virtual environment
-RUN python3 -m venv venv
-
-# Install dependencies in the virtual environment
-RUN ./venv/bin/pip install --no-cache-dir -r requirements.txt
+# Install dependencies directly without creating a virtual environment
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application files
 COPY . .
+
+# Accept build arguments for database credentials
+ARG DB_HOST
+ARG DB_NAME
+ARG DB_USER
+ARG DB_PASS
+
+# Create the .env file with the database credentials
+RUN echo "DB_HOST=${DB_HOST}" > .env && \
+    echo "DB_NAME=${DB_NAME}" >> .env && \
+    echo "DB_USER=${DB_USER}" >> .env && \
+    echo "DB_PASS=${DB_PASS}" >> .env
 
 # Expose the application port
 EXPOSE 5000
 
 # Command to run the application
-CMD ["./venv/bin/python", "app.py"]
-
+CMD ["flask", "run"]
